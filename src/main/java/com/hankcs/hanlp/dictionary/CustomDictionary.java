@@ -33,7 +33,10 @@ import static com.hankcs.hanlp.utility.Predefine.logger;
  */
 public class CustomDictionary
 {
-    static BinTrie<CoreDictionary.Attribute> trie;
+    /**
+     * 用于储存用户动态插入词条的二分trie树
+     */
+    public static BinTrie<CoreDictionary.Attribute> trie;
     public static DoubleArrayTrie<CoreDictionary.Attribute> dat = new DoubleArrayTrie<CoreDictionary.Attribute>();
     /**
      * 第一个是主词典，其他是副词典
@@ -80,9 +83,14 @@ public class CustomDictionary
                         continue;
                     }
                 }
-                logger.info("加载自定义词典" + p + "中……");
+                logger.info("以默认词性[" + defaultNature + "]加载自定义词典" + p + "中……");
                 boolean success = load(p, defaultNature, map);
                 if (!success) logger.warning("失败：" + p);
+            }
+            if (map.size() == 0)
+            {
+                logger.warning("没有加载到任何词条");
+                map.put(Predefine.TAG_OTHER, null);     // 当作空白占位符
             }
             logger.info("正在构建DoubleArrayTrie……");
             dat.build(map);
@@ -145,10 +153,10 @@ public class CustomDictionary
                 String[] param = line.split("\\s");
                 if (param[0].length() == 0) continue;   // 排除空行
                 if (HanLP.Config.Normalization) param[0] = CharTable.convert(param[0]); // 正规化
-                if (CoreDictionary.contains(param[0]) || map.containsKey(param[0]))
-                {
-                    continue;
-                }
+//                if (CoreDictionary.contains(param[0]) || map.containsKey(param[0]))
+//                {
+//                    continue;
+//                }
                 int natureCount = (param.length - 1) / 2;
                 CoreDictionary.Attribute attribute;
                 if (natureCount == 0)
@@ -192,10 +200,10 @@ public class CustomDictionary
     }
 
     /**
-     * 增加新词
+     * 往自定义词典中插入一个新词（非覆盖模式）
      *
-     * @param word
-     * @return
+     * @param word                新词 如“裸婚”
+     * @return 是否插入成功（失败的原因可能是不覆盖等，可以通过调试模式了解原因）
      */
     public static boolean add(String word)
     {
@@ -280,6 +288,9 @@ public class CustomDictionary
     public static CoreDictionary.Attribute get(String key)
     {
         if (HanLP.Config.Normalization) key = CharTable.convert(key);
+        CoreDictionary.Attribute attribute = dat.get(key);
+        if (attribute != null) return attribute;
+        if (trie == null) return null;
         return trie.get(key);
     }
 
@@ -291,6 +302,7 @@ public class CustomDictionary
     public static void remove(String key)
     {
         if (HanLP.Config.Normalization) key = CharTable.convert(key);
+        if (trie == null) return;
         trie.remove(key);
     }
 
